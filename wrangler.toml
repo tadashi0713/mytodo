@@ -14,5 +14,5 @@ database_id = "ca72ed84-e5fc-4cef-b87a-cf49e3303741"
 # API が Access の JWT を検証するようになります(未設定なら検証なし)。
 # ローカル開発で試す場合は .dev.vars に同じ変数を書いてください。
 # [vars]
-# CF_ACCESS_TEAM_DOMAIN = "<チーム名>.cloudflareaccess.com"
-# CF_ACCESS_AUD = "<Access アプリケーションの Audience (AUD) タグ>"
+# CF_ACCESS_TEAM_DOMAIN = "lively-feather-ee49.cloudflareaccess.com"
+# CF_ACCESS_AUD = "4441ccdc1b5bd6ace1e032dd8771cea1e6caee5259b00daf659c54d196f9111d"
