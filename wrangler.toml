@@ -1,0 +1,10 @@
+name = "mytodo"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mytodo-db"
+# デプロイ前に `npx wrangler d1 create mytodo-db` を実行し、
+# 出力された database_id に置き換えてください(ローカル開発はこのままで動きます)
+database_id = "ca72ed84-e5fc-4cef-b87a-cf49e3303741"

@@ -1,0 +1,29 @@
+{
+  "name": "mytodo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "mkdir -p dist && concurrently -n vite,wrangler \"vite\" \"wrangler pages dev dist --port 8788\"",
+    "build": "tsc --noEmit && vite build",
+    "preview": "npm run build && wrangler pages dev dist --port 8788",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "db:migrate:local": "wrangler d1 migrations apply mytodo-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply mytodo-db --remote"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260730.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "wrangler": "^4.0.0"
+  }
+}

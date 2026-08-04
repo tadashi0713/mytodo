@@ -1,0 +1,265 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  color: #202020;
+  background: #fff;
+}
+
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---- サイドバー ---- */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: #fafafa;
+  border-right: 1px solid #eee;
+  padding: 16px 10px;
+}
+
+.logo {
+  font-size: 18px;
+  padding: 0 10px 16px;
+  color: #d1453b;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  color: #202020;
+}
+
+.nav-item:hover {
+  background: #f0f0f0;
+}
+
+.nav-item.active {
+  background: #ffefe5;
+  color: #d1453b;
+  font-weight: 600;
+}
+
+.count {
+  margin-left: auto;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 10px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+}
+
+.project-row {
+  display: flex;
+  align-items: center;
+}
+
+.project-row .nav-item {
+  flex: 1;
+}
+
+.project-row .icon-btn.delete {
+  visibility: hidden;
+}
+
+.project-row:hover .icon-btn.delete {
+  visibility: visible;
+}
+
+.project-form {
+  padding: 4px 10px;
+}
+
+.project-form input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* ---- メイン ---- */
+.main {
+  flex: 1;
+  max-width: 760px;
+  padding: 32px 40px;
+}
+
+.main-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.main-header h2 {
+  font-size: 22px;
+}
+
+.show-completed {
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.error {
+  background: #fdecea;
+  color: #b3261e;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+/* ---- タスク追加フォーム ---- */
+.task-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.task-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.due-input {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #555;
+}
+
+.add-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #d1453b;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.add-btn:disabled {
+  background: #eda59f;
+  cursor: default;
+}
+
+/* ---- タスクリスト ---- */
+.task-list {
+  list-style: none;
+}
+
+.task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.task input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: #d1453b;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.task-title {
+  flex: 1;
+}
+
+.task.done .task-title {
+  text-decoration: line-through;
+  color: #aaa;
+}
+
+.task-project {
+  font-size: 12px;
+  color: #888;
+}
+
+.due {
+  font-size: 12px;
+  color: #692ec2;
+  white-space: nowrap;
+}
+
+.due.overdue {
+  color: #d1453b;
+}
+
+.task .icon-btn.delete {
+  visibility: hidden;
+}
+
+.task:hover .icon-btn.delete {
+  visibility: visible;
+}
+
+.icon-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #888;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.icon-btn:hover {
+  background: #eee;
+  color: #202020;
+}
+
+.empty {
+  color: #999;
+  padding: 24px 4px;
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .app {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+  .main {
+    padding: 20px 16px;
+  }
+}
