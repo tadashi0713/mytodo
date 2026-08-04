@@ -1,13 +1,46 @@
 import { Hono } from 'hono'
 import { handle } from 'hono/cloudflare-pages'
+import { getCookie } from 'hono/cookie'
+import { createRemoteJWKSet, jwtVerify } from 'jose'
 
 type Env = {
   Bindings: {
     DB: D1Database
+    // Cloudflare Access 連携(未設定なら検証をスキップ = ローカル開発用)
+    CF_ACCESS_TEAM_DOMAIN?: string // 例: "myteam.cloudflareaccess.com"
+    CF_ACCESS_AUD?: string // Access アプリケーションの AUD タグ
   }
 }
 
 const app = new Hono<Env>().basePath('/api')
+
+// ---- Cloudflare Access の JWT 検証 ----
+// Access を有効化しても、設定ミスで API が素通しにならないための二重防御。
+// エッジで Access が挟まっていれば Cf-Access-Jwt-Assertion ヘッダが必ず付く。
+
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null
+let jwksTeam = ''
+
+app.use('*', async (c, next) => {
+  const team = c.env.CF_ACCESS_TEAM_DOMAIN
+  const aud = c.env.CF_ACCESS_AUD
+  if (!team || !aud) return next()
+
+  const token =
+    c.req.header('Cf-Access-Jwt-Assertion') ?? getCookie(c, 'CF_Authorization')
+  if (!token) return c.json({ error: 'unauthorized' }, 401)
+
+  if (!jwks || jwksTeam !== team) {
+    jwks = createRemoteJWKSet(new URL(`https://${team}/cdn-cgi/access/certs`))
+    jwksTeam = team
+  }
+  try {
+    await jwtVerify(token, jwks, { issuer: `https://${team}`, audience: aud })
+  } catch {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+  return next()
+})
 
 // ---- プロジェクト ----
 

@@ -9,12 +9,13 @@ Cloudflare Pages + Pages Functions + D1 で無料枠内で運用できます。
 - **プロジェクト**: 無制限に作成可能。削除すると中のタスクも削除
 - **ビュー**: インボックス(プロジェクト未所属)/ 今日(期限が今日以前)/ プロジェクト別
 - 完了済みタスクの表示切り替え
+- **PWA 対応**: スマホの「ホーム画面に追加」でアプリとして起動可能。ダークモード対応(OS 設定に追従)
 
 ## 技術構成
 
 | レイヤー | 技術 |
 | --- | --- |
-| フロントエンド | Vite + React + TypeScript (SPA) |
+| フロントエンド | Vite + React + TypeScript (SPA) + vite-plugin-pwa |
 | API | Cloudflare Pages Functions + Hono (`functions/api/[[route]].ts`) |
 | DB | Cloudflare D1 (SQLite) |
 | ローカル開発 | Vite dev サーバー + `wrangler pages dev`(D1 をローカルエミュレート) |
@@ -67,14 +68,53 @@ npm run deploy
 - Pages Functions: 10 万リクエスト/日
 - D1: 5GB ストレージ、500 万行読み取り/日、10 万行書き込み/日
 
-### アクセス制限(推奨)
+## アクセス制限(Cloudflare Access)
 
-このアプリには認証がないため、デプロイした URL を知っていれば誰でも使えます。
-個人利用なら **Cloudflare Access**(Zero Trust、50 ユーザーまで無料)で保護するのが簡単です:
+**Cloudflare Access**(Zero Trust、50 ユーザーまで無料)でアプリ全体を保護できます。
+アプリ側にも Access の JWT を検証するミドルウェアを実装済みで、環境変数を設定すると
+API が Access を通らないリクエストを拒否します(エッジ設定の不備に対する二重防御)。
 
-1. Cloudflare ダッシュボード → Zero Trust → Access → Applications
-2. 「Self-hosted」で Pages のドメイン(`*.pages.dev` またはカスタムドメイン)を追加
-3. 自分のメールアドレスだけ許可するポリシーを設定(One-time PIN でログイン)
+### 1. Zero Trust で Access アプリケーションを作成
+
+1. [Cloudflare ダッシュボード](https://dash.cloudflare.com) → **Zero Trust**
+   (初回はチーム名を決める。プランは Free で OK)
+2. **Access → Applications → Add an application → Self-hosted**
+3. Application domain に Pages のドメインを設定:
+   - 本番: `mytodo.pages.dev`(カスタムドメインがあればそれも追加)
+   - プレビューデプロイも守る場合: `*.mytodo.pages.dev` を追加
+4. ポリシーを作成: Action = **Allow**、Include = **Emails** で自分のメールアドレスだけを指定
+   (ログイン方法はデフォルトの **One-time PIN**(メールで届くコード)が手軽)
+5. 作成後、アプリケーションの Overview から **Application Audience (AUD) タグ**をコピー
+
+> スマホ(PWA)で毎回ログインさせられないように、アプリケーションの
+> **Session Duration** を長め(例: 1 month)にしておくのがおすすめです。
+
+### 2. アプリ側の JWT 検証を有効化
+
+`wrangler.toml` の `[vars]` のコメントを外して設定:
+
+```toml
+[vars]
+CF_ACCESS_TEAM_DOMAIN = "<チーム名>.cloudflareaccess.com"
+CF_ACCESS_AUD = "<コピーした AUD タグ>"
+```
+
+再デプロイすれば反映されます:
+
+```bash
+npm run deploy
+```
+
+- 環境変数が未設定の場合、JWT 検証はスキップされます(ローカル開発はそのまま動く)
+- ローカルで検証の動作を試す場合は `.dev.vars`(gitignore 済み)に同じ 2 変数を書いてください
+
+## PWA について
+
+- ビルド時に `vite-plugin-pwa`(Workbox)が Service Worker と `manifest.webmanifest` を生成します
+- 静的アセットはプリキャッシュされ、`/api` の GET はネットワーク優先(オフライン時は最後に取得した内容を表示)
+- アイコンは `public/` 配下(192 / 512 / maskable / apple-touch-icon)
+- スマホでの追加方法: iOS Safari は「共有 → ホーム画面に追加」、Android Chrome は「インストール」バナーまたはメニューから
+- Service Worker は本番ビルドでのみ有効です(`npm run preview` で確認可能)
 
 ## API
 

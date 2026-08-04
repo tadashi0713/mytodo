@@ -8,3 +8,11 @@ database_name = "mytodo-db"
 # デプロイ前に `npx wrangler d1 create mytodo-db` を実行し、
 # 出力された database_id に置き換えてください(ローカル開発はこのままで動きます)
 database_id = "ca72ed84-e5fc-4cef-b87a-cf49e3303741"
+
+# Cloudflare Access によるアクセス制限(任意)
+# Zero Trust で Access アプリケーションを作成後、以下のコメントを外して値を設定すると
+# API が Access の JWT を検証するようになります(未設定なら検証なし)。
+# ローカル開発で試す場合は .dev.vars に同じ変数を書いてください。
+# [vars]
+# CF_ACCESS_TEAM_DOMAIN = "<チーム名>.cloudflareaccess.com"
+# CF_ACCESS_AUD = "<Access アプリケーションの Audience (AUD) タグ>"
