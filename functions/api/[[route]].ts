@@ -46,7 +46,7 @@ app.use('*', async (c, next) => {
 
 app.get('/projects', async (c) => {
   const { results } = await c.env.DB.prepare(
-    'SELECT id, name FROM projects ORDER BY id'
+    'SELECT id, name, position FROM projects ORDER BY position, id'
   ).all()
   return c.json(results)
 })
@@ -56,11 +56,27 @@ app.post('/projects', async (c) => {
   const name = body.name?.trim()
   if (!name) return c.json({ error: 'name is required' }, 400)
   const result = await c.env.DB.prepare(
-    'INSERT INTO projects (name) VALUES (?) RETURNING id, name'
+    'INSERT INTO projects (name, position) VALUES (?, (SELECT COALESCE(MAX(position), 0) + 1 FROM projects)) RETURNING id, name, position'
   )
     .bind(name)
     .first()
   return c.json(result, 201)
+})
+
+app.patch('/projects/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400)
+  const body = await c.req.json<{ position?: number }>()
+  if (typeof body.position !== 'number' || !Number.isFinite(body.position)) {
+    return c.json({ error: 'position is required' }, 400)
+  }
+  const result = await c.env.DB.prepare(
+    'UPDATE projects SET position = ? WHERE id = ? RETURNING id, name, position'
+  )
+    .bind(body.position, id)
+    .first()
+  if (!result) return c.json({ error: 'not found' }, 404)
+  return c.json(result)
 })
 
 app.delete('/projects/:id', async (c) => {
@@ -78,7 +94,7 @@ app.delete('/projects/:id', async (c) => {
 
 app.get('/tasks', async (c) => {
   const { results } = await c.env.DB.prepare(
-    'SELECT id, title, description, project_id, due_date, completed FROM tasks ORDER BY completed, due_date IS NULL, due_date, id'
+    'SELECT id, title, description, project_id, due_date, completed, position FROM tasks ORDER BY completed, position, id'
   ).all()
   return c.json(results)
 })
@@ -93,7 +109,7 @@ app.post('/tasks', async (c) => {
   const title = body.title?.trim()
   if (!title) return c.json({ error: 'title is required' }, 400)
   const result = await c.env.DB.prepare(
-    'INSERT INTO tasks (title, description, project_id, due_date) VALUES (?, ?, ?, ?) RETURNING id, title, description, project_id, due_date, completed'
+    'INSERT INTO tasks (title, description, project_id, due_date, position) VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tasks)) RETURNING id, title, description, project_id, due_date, completed, position'
   )
     .bind(title, body.description?.trim() || null, body.project_id ?? null, body.due_date ?? null)
     .first()
@@ -109,6 +125,7 @@ app.patch('/tasks/:id', async (c) => {
     project_id?: number | null
     due_date?: string | null
     completed?: boolean
+    position?: number
   }>()
 
   const sets: string[] = []
@@ -135,10 +152,17 @@ app.patch('/tasks/:id', async (c) => {
     sets.push('completed = ?')
     binds.push(body.completed ? 1 : 0)
   }
+  if (body.position !== undefined) {
+    if (typeof body.position !== 'number' || !Number.isFinite(body.position)) {
+      return c.json({ error: 'invalid position' }, 400)
+    }
+    sets.push('position = ?')
+    binds.push(body.position)
+  }
   if (sets.length === 0) return c.json({ error: 'no fields to update' }, 400)
 
   const result = await c.env.DB.prepare(
-    `UPDATE tasks SET ${sets.join(', ')} WHERE id = ? RETURNING id, title, description, project_id, due_date, completed`
+    `UPDATE tasks SET ${sets.join(', ')} WHERE id = ? RETURNING id, title, description, project_id, due_date, completed, position`
   )
     .bind(...binds, id)
     .first()

@@ -17,6 +17,8 @@ export const api = {
   listProjects: () => request<Project[]>('/api/projects'),
   createProject: (name: string) =>
     request<Project>('/api/projects', { method: 'POST', body: JSON.stringify({ name }) }),
+  updateProject: (id: number, patch: { position: number }) =>
+    request<Project>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   deleteProject: (id: number) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
 
   listTasks: () => request<Task[]>('/api/tasks'),
@@ -24,7 +26,9 @@ export const api = {
     request<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(input) }),
   updateTask: (
     id: number,
-    patch: Partial<Pick<Task, 'title' | 'description' | 'project_id' | 'due_date'>> & {
+    patch: Partial<
+      Pick<Task, 'title' | 'description' | 'project_id' | 'due_date' | 'position'>
+    > & {
       completed?: boolean
     }
   ) => request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),

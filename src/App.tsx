@@ -1,6 +1,56 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { api } from './api'
 import type { Project, Task, View } from './types'
+
+function Sortable({
+  id,
+  as = 'li',
+  className,
+  children,
+}: {
+  id: number
+  as?: 'li' | 'div'
+  className: string
+  children: ReactNode
+}) {
+  const { setNodeRef, transform, transition, listeners, isDragging } = useSortable({ id })
+  const Tag = as
+  return (
+    <Tag
+      ref={setNodeRef}
+      className={isDragging ? `${className} dragging` : className}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      {...listeners}
+    >
+      {children}
+    </Tag>
+  )
+}
+
+// 前後の要素の position の中間値を計算する(端なら ±1)
+function positionBetween(prev: { position: number } | undefined, next: { position: number } | undefined, fallback: number): number {
+  if (prev && next) return (prev.position + next.position) / 2
+  if (prev) return prev.position + 1
+  if (next) return next.position - 1
+  return fallback
+}
 
 type Theme = 'system' | 'light' | 'dark'
 
@@ -56,6 +106,19 @@ export default function App() {
     description: string
   } | null>(null)
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } })
+  )
+  // ドラッグ直後のクリックイベントを無視するためのフラグ
+  const justDragged = useRef(false)
+  const suppressClickAfterDrag = (e: React.SyntheticEvent) => {
+    if (justDragged.current) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+
   useEffect(() => {
     if (theme === 'system') {
       delete document.documentElement.dataset.theme
@@ -91,19 +154,26 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => a.position - b.position || a.id - b.id),
+    [projects]
+  )
+
   const visibleTasks = useMemo(() => {
     const today = todayStr()
-    return tasks.filter((t) => {
-      if (!showCompleted && t.completed) return false
-      switch (view.kind) {
-        case 'inbox':
-          return t.project_id === null
-        case 'today':
-          return t.due_date !== null && t.due_date <= today
-        case 'project':
-          return t.project_id === view.id
-      }
-    })
+    return tasks
+      .filter((t) => {
+        if (!showCompleted && t.completed) return false
+        switch (view.kind) {
+          case 'inbox':
+            return t.project_id === null
+          case 'today':
+            return t.due_date !== null && t.due_date <= today
+          case 'project':
+            return t.project_id === view.id
+        }
+      })
+      .sort((a, b) => a.completed - b.completed || a.position - b.position || a.id - b.id)
   }, [tasks, view, showCompleted])
 
   const viewTitle =
@@ -160,6 +230,45 @@ export default function App() {
       await api.deleteTask(id)
       setTasks((ts) => ts.filter((t) => t.id !== id))
     })
+
+  const afterDrag = () => {
+    justDragged.current = true
+    setTimeout(() => {
+      justDragged.current = false
+    }, 120)
+  }
+
+  const handleTaskDragEnd = (e: DragEndEvent) => {
+    afterDrag()
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const oldIndex = visibleTasks.findIndex((t) => t.id === active.id)
+    const newIndex = visibleTasks.findIndex((t) => t.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    const reordered = arrayMove(visibleTasks, oldIndex, newIndex)
+    const moved = reordered[newIndex]
+    const position = positionBetween(reordered[newIndex - 1], reordered[newIndex + 1], moved.position)
+    setTasks((ts) => ts.map((t) => (t.id === moved.id ? { ...t, position } : t)))
+    run(async () => {
+      await api.updateTask(moved.id, { position })
+    })
+  }
+
+  const handleProjectDragEnd = (e: DragEndEvent) => {
+    afterDrag()
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const oldIndex = sortedProjects.findIndex((p) => p.id === active.id)
+    const newIndex = sortedProjects.findIndex((p) => p.id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    const reordered = arrayMove(sortedProjects, oldIndex, newIndex)
+    const moved = reordered[newIndex]
+    const position = positionBetween(reordered[newIndex - 1], reordered[newIndex + 1], moved.position)
+    setProjects((ps) => ps.map((p) => (p.id === moved.id ? { ...p, position } : p)))
+    run(async () => {
+      await api.updateProject(moved.id, { position })
+    })
+  }
 
   const startEdit = (t: Task) =>
     setEditing({ id: t.id, title: t.title, description: t.description ?? '' })
@@ -289,29 +398,44 @@ export default function App() {
           </form>
         )}
 
-        <nav className="project-list">
-          {projects.map((p) => (
-            <div key={p.id} className="project-row">
-              <button
-                className={
-                  view.kind === 'project' && view.id === p.id ? 'nav-item active' : 'nav-item'
-                }
-                onClick={() => selectView({ kind: 'project', id: p.id })}
-              >
-                <span className="nav-icon hash">#</span>
-                <span className="nav-label">{p.name}</span>
-                {countFor({ kind: 'project', id: p.id }) > 0 && (
-                  <span className="count">{countFor({ kind: 'project', id: p.id })}</span>
-                )}
-              </button>
-              <button className="icon-btn delete" title="削除" onClick={() => removeProject(p.id)}>
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </nav>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleProjectDragEnd}
+        >
+          <SortableContext
+            items={sortedProjects.map((p) => p.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <nav className="project-list" onClickCapture={suppressClickAfterDrag}>
+              {sortedProjects.map((p) => (
+                <Sortable key={p.id} id={p.id} as="div" className="project-row">
+                  <button
+                    className={
+                      view.kind === 'project' && view.id === p.id ? 'nav-item active' : 'nav-item'
+                    }
+                    onClick={() => selectView({ kind: 'project', id: p.id })}
+                  >
+                    <span className="nav-icon hash">#</span>
+                    <span className="nav-label">{p.name}</span>
+                    {countFor({ kind: 'project', id: p.id }) > 0 && (
+                      <span className="count">{countFor({ kind: 'project', id: p.id })}</span>
+                    )}
+                  </button>
+                  <button
+                    className="icon-btn delete"
+                    title="削除"
+                    onClick={() => removeProject(p.id)}
+                  >
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                </Sortable>
+              ))}
+            </nav>
+          </SortableContext>
+        </DndContext>
       </aside>
 
       <main className="main">
@@ -384,8 +508,17 @@ export default function App() {
           </button>
         </form>
 
-        <ul className="task-list">
-          {visibleTasks.map((t) =>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleTaskDragEnd}
+        >
+          <SortableContext
+            items={visibleTasks.map((t) => t.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className="task-list" onClickCapture={suppressClickAfterDrag}>
+              {visibleTasks.map((t) =>
             editing?.id === t.id ? (
               <li key={t.id} className="task editing">
                 <form
@@ -423,7 +556,7 @@ export default function App() {
                 </form>
               </li>
             ) : (
-              <li key={t.id} className={t.completed ? 'task done' : 'task'}>
+              <Sortable key={t.id} id={t.id} className={t.completed ? 'task done' : 'task'}>
                 <input
                   type="checkbox"
                   className="task-check"
@@ -463,16 +596,18 @@ export default function App() {
                     <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
                   </svg>
                 </button>
-              </li>
+              </Sortable>
             )
           )}
-          {!loading && visibleTasks.length === 0 && (
-            <li className="empty">
-              <span className="empty-icon">🎉</span>
-              タスクはありません
-            </li>
-          )}
-        </ul>
+              {!loading && visibleTasks.length === 0 && (
+                <li className="empty">
+                  <span className="empty-icon">🎉</span>
+                  タスクはありません
+                </li>
+              )}
+            </ul>
+          </SortableContext>
+        </DndContext>
       </main>
     </div>
   )

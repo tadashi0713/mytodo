@@ -189,6 +189,15 @@ button {
   display: flex;
   align-items: center;
   gap: 2px;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.project-row.dragging {
+  opacity: 0.55;
+  position: relative;
+  z-index: 5;
 }
 
 .project-row .nav-item {
@@ -372,6 +381,16 @@ button {
   border-bottom: 1px solid var(--border);
   font-size: 14.5px;
   animation: fade-in 0.18s ease;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.task.dragging {
+  opacity: 0.55;
+  position: relative;
+  z-index: 5;
+  background: var(--bg);
 }
 
 @keyframes fade-in {
