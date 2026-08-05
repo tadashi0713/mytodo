@@ -78,7 +78,7 @@ app.delete('/projects/:id', async (c) => {
 
 app.get('/tasks', async (c) => {
   const { results } = await c.env.DB.prepare(
-    'SELECT id, title, project_id, due_date, completed FROM tasks ORDER BY completed, due_date IS NULL, due_date, id'
+    'SELECT id, title, description, project_id, due_date, completed FROM tasks ORDER BY completed, due_date IS NULL, due_date, id'
   ).all()
   return c.json(results)
 })
@@ -86,15 +86,16 @@ app.get('/tasks', async (c) => {
 app.post('/tasks', async (c) => {
   const body = await c.req.json<{
     title?: string
+    description?: string | null
     project_id?: number | null
     due_date?: string | null
   }>()
   const title = body.title?.trim()
   if (!title) return c.json({ error: 'title is required' }, 400)
   const result = await c.env.DB.prepare(
-    'INSERT INTO tasks (title, project_id, due_date) VALUES (?, ?, ?) RETURNING id, title, project_id, due_date, completed'
+    'INSERT INTO tasks (title, description, project_id, due_date) VALUES (?, ?, ?, ?) RETURNING id, title, description, project_id, due_date, completed'
   )
-    .bind(title, body.project_id ?? null, body.due_date ?? null)
+    .bind(title, body.description?.trim() || null, body.project_id ?? null, body.due_date ?? null)
     .first()
   return c.json(result, 201)
 })
@@ -104,6 +105,7 @@ app.patch('/tasks/:id', async (c) => {
   if (!Number.isInteger(id)) return c.json({ error: 'invalid id' }, 400)
   const body = await c.req.json<{
     title?: string
+    description?: string | null
     project_id?: number | null
     due_date?: string | null
     completed?: boolean
@@ -116,6 +118,10 @@ app.patch('/tasks/:id', async (c) => {
     if (!title) return c.json({ error: 'title must not be empty' }, 400)
     sets.push('title = ?')
     binds.push(title)
+  }
+  if (body.description !== undefined) {
+    sets.push('description = ?')
+    binds.push(body.description?.trim() || null)
   }
   if (body.project_id !== undefined) {
     sets.push('project_id = ?')
@@ -132,7 +138,7 @@ app.patch('/tasks/:id', async (c) => {
   if (sets.length === 0) return c.json({ error: 'no fields to update' }, 400)
 
   const result = await c.env.DB.prepare(
-    `UPDATE tasks SET ${sets.join(', ')} WHERE id = ? RETURNING id, title, project_id, due_date, completed`
+    `UPDATE tasks SET ${sets.join(', ')} WHERE id = ? RETURNING id, title, description, project_id, due_date, completed`
   )
     .bind(...binds, id)
     .first()

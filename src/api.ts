@@ -22,7 +22,11 @@ export const api = {
   listTasks: () => request<Task[]>('/api/tasks'),
   createTask: (input: { title: string; project_id: number | null; due_date: string | null }) =>
     request<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(input) }),
-  updateTask: (id: number, patch: Partial<Pick<Task, 'title' | 'project_id' | 'due_date'>> & { completed?: boolean }) =>
-    request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  updateTask: (
+    id: number,
+    patch: Partial<Pick<Task, 'title' | 'description' | 'project_id' | 'due_date'>> & {
+      completed?: boolean
+    }
+  ) => request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   deleteTask: (id: number) => request<void>(`/api/tasks/${id}`, { method: 'DELETE' }),
 }

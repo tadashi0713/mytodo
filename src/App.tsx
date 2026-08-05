@@ -2,6 +2,19 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import type { Project, Task, View } from './types'
 
+type Theme = 'system' | 'light' | 'dark'
+
+function loadTheme(): Theme {
+  const t = localStorage.getItem('theme')
+  return t === 'light' || t === 'dark' ? t : 'system'
+}
+
+const THEME_LABEL: Record<Theme, string> = {
+  system: 'テーマ: システム',
+  light: 'テーマ: ライト',
+  dark: 'テーマ: ダーク',
+}
+
 function todayStr(): string {
   const d = new Date()
   const y = d.getFullYear()
@@ -31,11 +44,42 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [theme, setTheme] = useState<Theme>(loadTheme)
 
   const [newTitle, setNewTitle] = useState('')
   const [newDue, setNewDue] = useState('')
   const [newProjectName, setNewProjectName] = useState('')
   const [addingProject, setAddingProject] = useState(false)
+  const [editing, setEditing] = useState<{
+    id: number
+    title: string
+    description: string
+  } | null>(null)
+
+  useEffect(() => {
+    if (theme === 'system') {
+      delete document.documentElement.dataset.theme
+      localStorage.removeItem('theme')
+    } else {
+      document.documentElement.dataset.theme = theme
+      localStorage.setItem('theme', theme)
+    }
+
+    // ブラウザUI(ステータスバー等)の色を実際の配色に合わせる
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyMetaColor = () => {
+      const dark = theme === 'dark' || (theme === 'system' && mq.matches)
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', dark ? '#1d1c1a' : '#faf9f7')
+    }
+    applyMetaColor()
+    mq.addEventListener('change', applyMetaColor)
+    return () => mq.removeEventListener('change', applyMetaColor)
+  }, [theme])
+
+  const cycleTheme = () =>
+    setTheme((t) => (t === 'system' ? 'light' : t === 'light' ? 'dark' : 'system'))
 
   useEffect(() => {
     Promise.all([api.listProjects(), api.listTasks()])
@@ -115,6 +159,22 @@ export default function App() {
     run(async () => {
       await api.deleteTask(id)
       setTasks((ts) => ts.filter((t) => t.id !== id))
+    })
+
+  const startEdit = (t: Task) =>
+    setEditing({ id: t.id, title: t.title, description: t.description ?? '' })
+
+  const saveEdit = () =>
+    run(async () => {
+      if (!editing) return
+      const title = editing.title.trim()
+      if (!title) return
+      const updated = await api.updateTask(editing.id, {
+        title,
+        description: editing.description.trim() || null,
+      })
+      setTasks((ts) => ts.map((t) => (t.id === editing.id ? updated : t)))
+      setEditing(null)
     })
 
   const addProject = () =>
@@ -262,6 +322,31 @@ export default function App() {
             </svg>
           </button>
           <h2>{viewTitle}</h2>
+          <button
+            className="icon-btn theme-btn"
+            title={THEME_LABEL[theme]}
+            aria-label={THEME_LABEL[theme]}
+            onClick={cycleTheme}
+          >
+            {theme === 'light' ? (
+              // 太陽
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4" />
+              </svg>
+            ) : theme === 'dark' ? (
+              // 月
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+              </svg>
+            ) : (
+              // モニター(システム)
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M8 21h8M12 17v4" />
+              </svg>
+            )}
+          </button>
           <label className="show-completed">
             <input
               type="checkbox"
@@ -300,39 +385,87 @@ export default function App() {
         </form>
 
         <ul className="task-list">
-          {visibleTasks.map((t) => (
-            <li key={t.id} className={t.completed ? 'task done' : 'task'}>
-              <input
-                type="checkbox"
-                className="task-check"
-                checked={!!t.completed}
-                onChange={() => toggleTask(t)}
-                aria-label={t.completed ? '未完了に戻す' : '完了にする'}
-              />
-              <div className="task-body">
-                <span className="task-title">{t.title}</span>
-                <span className="task-meta">
-                  {t.due_date && (
-                    <span
-                      className={t.due_date < todayStr() && !t.completed ? 'due overdue' : 'due'}
-                    >
-                      {formatDue(t.due_date)}
-                    </span>
-                  )}
-                  {view.kind !== 'project' && t.project_id !== null && (
-                    <span className="task-project">
-                      # {projects.find((p) => p.id === t.project_id)?.name}
-                    </span>
-                  )}
-                </span>
-              </div>
-              <button className="icon-btn delete" title="削除" onClick={() => removeTask(t.id)}>
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                </svg>
-              </button>
-            </li>
-          ))}
+          {visibleTasks.map((t) =>
+            editing?.id === t.id ? (
+              <li key={t.id} className="task editing">
+                <form
+                  className="task-edit"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    saveEdit()
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setEditing(null)
+                  }}
+                >
+                  <input
+                    autoFocus
+                    className="edit-title"
+                    value={editing.title}
+                    onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                    placeholder="タスク名"
+                  />
+                  <textarea
+                    className="edit-desc"
+                    value={editing.description}
+                    onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                    placeholder="説明"
+                    rows={3}
+                  />
+                  <div className="edit-actions">
+                    <button type="button" className="ghost-btn" onClick={() => setEditing(null)}>
+                      キャンセル
+                    </button>
+                    <button type="submit" className="add-btn" disabled={!editing.title.trim()}>
+                      保存
+                    </button>
+                  </div>
+                </form>
+              </li>
+            ) : (
+              <li key={t.id} className={t.completed ? 'task done' : 'task'}>
+                <input
+                  type="checkbox"
+                  className="task-check"
+                  checked={!!t.completed}
+                  onChange={() => toggleTask(t)}
+                  aria-label={t.completed ? '未完了に戻す' : '完了にする'}
+                />
+                <div
+                  className="task-body"
+                  role="button"
+                  tabIndex={0}
+                  title="クリックして編集"
+                  onClick={() => startEdit(t)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') startEdit(t)
+                  }}
+                >
+                  <span className="task-title">{t.title}</span>
+                  {t.description && <span className="task-desc">{t.description}</span>}
+                  <span className="task-meta">
+                    {t.due_date && (
+                      <span
+                        className={t.due_date < todayStr() && !t.completed ? 'due overdue' : 'due'}
+                      >
+                        {formatDue(t.due_date)}
+                      </span>
+                    )}
+                    {view.kind !== 'project' && t.project_id !== null && (
+                      <span className="task-project">
+                        # {projects.find((p) => p.id === t.project_id)?.name}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <button className="icon-btn delete" title="削除" onClick={() => removeTask(t.id)}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  </svg>
+                </button>
+              </li>
+            )
+          )}
           {!loading && visibleTasks.length === 0 && (
             <li className="empty">
               <span className="empty-icon">🎉</span>

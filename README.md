@@ -5,7 +5,7 @@ Cloudflare Pages + Pages Functions + D1 で無料枠内で運用できます。
 
 ## 機能
 
-- **タスク**: タイトル・期限(任意)・完了チェック・削除
+- **タスク**: タイトル・説明(任意)・期限(任意)・完了チェック・削除。タスクをクリックでタイトルと説明を編集
 - **プロジェクト**: 無制限に作成可能。削除すると中のタスクも削除
 - **ビュー**: インボックス(プロジェクト未所属)/ 今日(期限が今日以前)/ プロジェクト別
 - 完了済みタスクの表示切り替え
@@ -124,6 +124,6 @@ npm run deploy
 | POST | `/api/projects` | 作成 `{name}` |
 | DELETE | `/api/projects/:id` | 削除(タスクも削除) |
 | GET | `/api/tasks` | タスク一覧 |
-| POST | `/api/tasks` | 作成 `{title, project_id?, due_date?}` |
-| PATCH | `/api/tasks/:id` | 更新 `{title?, project_id?, due_date?, completed?}` |
+| POST | `/api/tasks` | 作成 `{title, description?, project_id?, due_date?}` |
+| PATCH | `/api/tasks/:id` | 更新 `{title?, description?, project_id?, due_date?, completed?}` |
 | DELETE | `/api/tasks/:id` | 削除 |

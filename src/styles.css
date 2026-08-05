@@ -14,10 +14,30 @@
   --due: #7c5cd6;
   --shadow: 0 1px 3px rgba(30, 25, 20, 0.06), 0 4px 16px rgba(30, 25, 20, 0.05);
   --radius: 10px;
+  color-scheme: light;
 }
 
+/* 手動でダークを選択した場合 */
+:root[data-theme='dark'] {
+  --primary: #e5675c;
+  --primary-soft: #f26c5a;
+  --bg: #1d1c1a;
+  --bg-sidebar: #232220;
+  --bg-card: #2a2927;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: #43302c;
+  --text: #ece9e4;
+  --text-sub: #a5a099;
+  --text-faint: #6e6a64;
+  --border: #3a3835;
+  --due: #a68bf0;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+}
+
+/* システム追従(手動でライトを選択していない場合のみ) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --primary: #e5675c;
     --primary-soft: #f26c5a;
     --bg: #1d1c1a;
@@ -31,6 +51,7 @@
     --border: #3a3835;
     --due: #a68bf0;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+    color-scheme: dark;
   }
 }
 
@@ -405,6 +426,28 @@ button {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.task-body:focus-visible {
+  outline: 2px solid var(--primary-soft);
+  outline-offset: 4px;
+}
+
+.task-desc {
+  font-size: 12.5px;
+  color: var(--text-sub);
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.task.done .task-desc {
+  color: var(--text-faint);
 }
 
 .task-title {
@@ -476,6 +519,71 @@ button {
 
 .icon-btn.delete:hover {
   color: var(--danger);
+}
+
+/* ---- タスク編集フォーム ---- */
+.task.editing {
+  display: block;
+  padding: 12px 0;
+}
+
+.task-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--primary-soft);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--shadow);
+}
+
+.edit-title {
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  outline: none;
+  padding: 2px 0;
+  font-family: inherit;
+}
+
+.edit-desc {
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+  min-height: 48px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.edit-title::placeholder,
+.edit-desc::placeholder {
+  color: var(--text-faint);
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ghost-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-sub);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ghost-btn:hover {
+  color: var(--text);
 }
 
 .empty {
